@@ -22,37 +22,37 @@ void GC9203_Display::Write_Cmd(uint8_t cmd) {
   digitalWrite(_ss, LOW);  // 拉低片选信号，选择当前设备
   digitalWrite(_dc, LOW);  // 拉低数据/命令选择引脚，表示接下来发送的是命令
   ## digitalWrite 是 Arduino 平台中的一个内置函数，用于设置数字引脚的值为高电平（HIGH）或低电平（LOW）。
-  for (i = 0; i < 8; i++) {
-    digitalWrite(_scl, LOW);
-    if (cmd & 0x80) digitalWrite(_sdi, HIGH);
-    else digitalWrite(_sdi, LOW);
-    digitalWrite(_scl, HIGH);
-    cmd = cmd << 1;
+  for (i = 0; i < 8; i++) {  // 循环8次，每次处理一个比特
+    digitalWrite(_scl, LOW);  // 拉低时钟信号
+    if (cmd & 0x80) digitalWrite(_sdi, HIGH);  // 如果最高位是1，则拉高数据线
+    else digitalWrite(_sdi, LOW);  // 如果最高位是0，则拉低数据线
+    digitalWrite(_scl, HIGH);  // 拉高时钟信号，触发数据传输
+    cmd = cmd << 1;  // 左移命令字节，处理下一个比特
   }
-  digitalWrite(_ss, HIGH);
+  digitalWrite(_ss, HIGH);  // 拉高片选信号，结束传输
 }
 
 void GC9203_Display::Write_Data(uint8_t data) {
- uint8_t m, n;
-  m = data >> 8;
-  n = data;
-  Write_Data_U16(m, n);
+ uint8_t m, n; // 定义了两个8比特的参数 m和n
+  m = data >> 8; // m=00000000. 因为data只有8位，右移8位就全部移出了，只有0了
+  n = data; // n=data
+  Write_Data_U16(m, n); // 得到了一个高8位是0的16位数据
 }
 
 void GC9203_Display::Write_Data_U16(uint8_t DH, uint8_t DL) {
 
   uint8_t i;
-  digitalWrite(_ss, LOW);
- digitalWrite(_dc, HIGH);
-  for (i = 0; i < 8; i++) {
-   digitalWrite(_scl, LOW);
-    if (DH & 0x80)digitalWrite(_sdi, HIGH);
-    else digitalWrite(_sdi, LOW);
-     digitalWrite(_scl, HIGH);
-    DH = DH << 1;
+  digitalWrite(_ss, LOW); // 片选信号拉低，开始传输数据。第一步对DH进行操作
+ digitalWrite(_dc, HIGH); // 拉高传输data
+  for (i = 0; i < 8; i++) { // 循环在第八次时停止
+   digitalWrite(_scl, LOW); // 当时序拉低时
+    if (DH & 0x80)digitalWrite(_sdi, HIGH); // 如果最高位等于1，就把串口输入信号线拉高
+    else digitalWrite(_sdi, LOW);  // 如果最高位等于0，就把串口输入信号线拉低
+     digitalWrite(_scl, HIGH); // 结束以上操作时，把时序拉高
+    DH = DH << 1; // 将DH信号左移一位
   }
-  digitalWrite(_ss, HIGH);
-  digitalWrite(_ss, LOW);
+  digitalWrite(_ss, HIGH); // 结束以上操作后，把片选信号拉高
+  digitalWrite(_ss, LOW); // 片选信号拉低，开始传输数据。第二步对DL进行操作，逻辑同上。
   for (i = 0; i < 8; i++) {
     digitalWrite(_scl, LOW);
     if (DL & 0x80) digitalWrite(_sdi, HIGH);
@@ -65,7 +65,7 @@ void GC9203_Display::Write_Data_U16(uint8_t DH, uint8_t DL) {
 
 void GC9203_Display::Write_Three_Bytes(uint8_t byte1, uint8_t byte2, uint8_t byte3) {
     uint8_t i;
-
+    // 三个字节情况下的写入函数，逻辑和上面是一样的
     // Assert chip select line (SS low)
     digitalWrite(_ss, LOW);
     digitalWrite(_dc, HIGH);
@@ -101,7 +101,7 @@ void GC9203_Display::Write_Three_Bytes(uint8_t byte1, uint8_t byte2, uint8_t byt
 }
 
 void GC9203_Display::Write_Data_16(uint16_t data) {
-
+// 不分DH DL时的16位输入数据，逻辑也同上
 unsigned char i;
    digitalWrite(_ss, LOW);
   digitalWrite(_dc, HIGH);
@@ -114,23 +114,26 @@ unsigned char i;
   }
     digitalWrite(_ss,HIGH);
 }
-
-void GC9203_Display::begin() {
+// 至此，输入函数定义完了，接下来定义方法函数
+void GC9203_Display::begin() {// “开始”函数 
   digitalWrite(_ss, HIGH);
   delay(5);
   digitalWrite(_rst, LOW);  // Reset the display
   delay(10);
-  digitalWrite(_rst, HIGH);
+  digitalWrite(_rst, HIGH); // 结束复位
   delay(120);
 
-  Write_Cmd(0xff);
-  Write_Data_U16(0x5a, 0xa5);
+  // 接下来是命令和数据传输给显示屏，但是不知道含义？因为他的高8位也一直在变，没搞懂是地址还是什么意思。
+  // 猜测是地址吧
+  Write_Cmd(0xff); // 发送命令，全部拉高
+  Write_Data_U16(0x5a, 0xa5); // 发送数据，不知道这个数据是发给谁的，前面是高八位，后面是第八位
 
-  Write_Cmd(0xf6);
+  Write_Cmd(0xf6); 
   Write_Data_U16(0x01, 0x12);
 
-  Write_Cmd(0xef);
-  Write_Data_U16(0x10, 0x52); // 1052
+  Write_Cmd(0xef); // 内部寄存器CHP Control6, 
+  Write_Data_U16(0x10, 0x52); // 1052, 0001 0000 0101 0010, 把VGL_AD1拉高，其他为0，后八位是默认值。
+  // 结果查表得到，VGL(010) = -9V, VGH(000) = 9V .挺合理的。验证了Write_Cmd是传输寄存器地址的意思。 
 
   Write_Cmd(0xa5);
   Write_Data_U16(0x07, 0x80);
@@ -141,7 +144,8 @@ void GC9203_Display::begin() {
   // Write_Cmd(0x03);
   // Write_Data_U16(0x10, 0x00);   // cambiato da 0x10, 0x00 a  0x1, 0x00
 
-   Write_Cmd(0x03);
+   Write_Cmd(0x03); // 设置entry mode寄存器，0x12意味着BGR=1, MDT=10（也就是transfer和GRAM一一对应的格式）
+  // 不同的HORIZONTAL改变的 只有数据写入GRAM的模式
 if(USE_HORIZONTAL == 0)
   Write_Data_U16(0x12, 0x08);
 else if(USE_HORIZONTAL == 1)
@@ -153,7 +157,7 @@ else if(USE_HORIZONTAL == 3)
 
 
   Write_Cmd(0x01);
-  Write_Data_U16(0x01, 0x1c);   // cambiato da 0x03, 0x1c a 0x00, 0x1c
+  Write_Data_U16(0x01, 0x1c);   // cambiato da（从） 0x03, 0x1c a 0x00, 0x1c
 
   /**************************************************************************/
   Write_Cmd(0x05);
@@ -222,7 +226,8 @@ else if(USE_HORIZONTAL == 3)
 }
 
 void GC9203_Display::LCD_SetPos(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) { // Use uint16_t
-  Write_Cmd(0x03);
+// 输入信号有两组坐标，这个函数的意义应该是设置LCD的起始和结束点。
+  Write_Cmd(0x03); // R03h 还是entry mode寄存器。这一段和begin的内容有点重复，不知道原因。
   if (USE_HORIZONTAL == 0)
     Write_Data_U16(0x12, 0x08);
   else if (USE_HORIZONTAL == 1)
@@ -232,9 +237,10 @@ void GC9203_Display::LCD_SetPos(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t 
   else if (USE_HORIZONTAL == 3)
     Write_Data_U16(0x12, 0x10);
 
-  if (USE_HORIZONTAL == 0 || USE_HORIZONTAL == 1) {
+  if (USE_HORIZONTAL == 0 || USE_HORIZONTAL == 1) { //即，0x08和0x38,AM=1,为垂直方向扫描时的设置
+    // 接下来四个寄存器就是Horizontal and Vertical RAM Address Position，即设置窗口函数的连续写入范围。
     Write_Cmd(0x37);       //Horizontal Start
-    Write_Data(x1 + 24);
+    Write_Data(x1 + 24); // 为啥要加24？
     Write_Cmd(0x36);      //Horizontal End
     Write_Data(x2 + 24);
     Write_Cmd(0x39);      //Vertical Start
