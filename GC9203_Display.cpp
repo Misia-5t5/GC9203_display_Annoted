@@ -179,21 +179,21 @@ else if(USE_HORIZONTAL == 3)
   Write_Cmd(0x11); // power control2
   Write_Data_U16(0x10, 0x00); // 0d1f 1630  // vreg1b[13:8]_vreg1a_[5:0]     122B   3319  0D1F
 
-  Write_Cmd(0xEB);  // Vreg_Ctrl1
+  Write_Cmd(0xEB);  // Vreg_Ctrl1 设置灰度的最高最低电压（正）A=1f=37=5.75V, B=d=13=1.03V
   Write_Data_U16(0x0d, 0x1f); // 160a  // vreg2b[13:8]_vreg2a_[5:0]     1606   2334  0528
-
-  Write_Cmd(0xEC); // Vreg_Ctrl2
+ 
+  Write_Cmd(0xEC); // Vreg_Ctrl2 设置灰度的最高最低电压（负）A=28=40=-3.95V, B=5=5=0.65V
   Write_Data_U16(0x05, 0x28);
 
   Write_Cmd(0x50); // Gamma Control1
-  Write_Data_U16(0xf3, 0x80); // H:V0(7-4) V13(3-0)   L:V63(3-0)
-  // 这里就开始看不懂了，高八位全部拉高，参数和注释是对应的；但是低八位，注释的意思是0x0f，参数却是0x80
-  Write_Cmd(0x51);
-  Write_Data_U16(0x11, 0x0c); // H:V61(5-0)   L:V62(5-0)
-  // 这一组也是，高八位合理，低八位看不懂
+  Write_Data_U16(0xf3, 0x80); // H:V0(7-4) V13(3-0)   L:V63(3-0)   // 这里就开始看不懂了。注释是标出每个寄存器有gamma控制的具体引脚
+
+  Write_Cmd(0x51);// Gamma Control2
+  Write_Data_U16(0x11, 0x0c); // H:V61(5-0)   L:V62(5-0)  // 
+
   Write_Cmd(0x52);
-  Write_Data_U16(0x09, 0x09); // H:V57(4-0)  L:V59(4-0)
-  // 同上
+  Write_Data_U16(0x09, 0x09); // H:V57(4-0)  L:V59(4-0) // 同上
+ 
   Write_Cmd(0x53);
   Write_Data_U16(0x37, 0x06); // H:V43(6-0)  L:V50(3-0)
 
@@ -224,7 +224,7 @@ else if(USE_HORIZONTAL == 3)
   Write_Cmd(0x5C);
   Write_Data_U16(0x12, 0x12); // H:V4(4-0)   L:V6(4-0)
 
-  Write_Cmd(0x5D);
+  Write_Cmd(0x5D);// Gamma Control14
   Write_Data_U16(0x37, 0x36); // H:V1(5-0)   L:V2(5-0) //以上全是Gamma控制的内容。
 
    Write_Cmd(0x07); // display control1 
