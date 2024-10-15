@@ -4,6 +4,7 @@
 GC9203_Display::GC9203_Display(int8_t ss, int8_t rst, int8_t scl, int8_t sdi, int8_t dc, uint8_t use_horizontal)
   : Adafruit_GFX((use_horizontal % 2 == 0) ? 220 : 128, (use_horizontal % 2 == 0) ? 128 : 220),// 这是一个对Adafruit_GFX基类图形库的初始化
   // 根据use_horizontal参数的值来设置显示屏的宽度和高度。
+  // 但是怎么两个数值都是Horizontal？假设use_horizontal是偶数，则选220，那第二个值自动成为128.两次判断没有意义。
     _ss(ss), _rst(rst), _scl(scl), _sdi(sdi), _dc(dc), USE_HORIZONTAL(use_horizontal) {
   pinMode(_ss, OUTPUT);
   pinMode(_rst, OUTPUT);
@@ -115,6 +116,12 @@ unsigned char i;
     digitalWrite(_ss,HIGH);
 }
 // 至此，输入函数定义完了，接下来定义方法函数
+  /*************************************************************************/
+  /*************************************************************************/
+  /*************************************************************************/
+
+  /**********第一个方法函数：开始函数*****************************************/
+
 void GC9203_Display::begin() {// “开始”函数 
   digitalWrite(_ss, HIGH);
   delay(5);
@@ -135,10 +142,10 @@ void GC9203_Display::begin() {// “开始”函数
   Write_Data_U16(0x10, 0x52); // 1052, 0001 0000 0101 0010, 把VGL_AD1拉高，其他为0，后八位是默认值。
   // 结果查表得到，VGL(010) = -9V, VGH(000) = 9V .挺合理的。验证了Write_Cmd是传输寄存器地址的意思。 
 
-  Write_Cmd(0xa5);
+  Write_Cmd(0xa5); // a5是哪个寄存器？介于Gamma control14和CHP-CTRL1之间
   Write_Data_U16(0x07, 0x80);
 
-  Write_Cmd(0x02);
+  Write_Cmd(0x02); // LCD AC Driving Control
   Write_Data_U16(0x01, 0x00);
 
   // Write_Cmd(0x03);
@@ -156,36 +163,37 @@ else if(USE_HORIZONTAL == 3)
   Write_Data_U16(0x12, 0x10);
 
 
-  Write_Cmd(0x01);
+  Write_Cmd(0x01); // driver output control register.
   Write_Data_U16(0x01, 0x1c);   // cambiato da（从） 0x03, 0x1c a 0x00, 0x1c
-
+  // ss=1, NL=11100, 即528*220dots，g1到g220全开
   /**************************************************************************/
-  Write_Cmd(0x05);
-  Write_Data_U16(0x00, 0x01);  //262K color 1pixel/transition
-
+  Write_Cmd(0x05); // spi_2data. 
+  Write_Data_U16(0x00, 0x01);  //262K color 1pixel/transition, 2dataMDT=001. 这是RGB666
+  // 外部寄存器设置完成
   /*************************************************************************/
 
-  Write_Cmd(0xf6);
+  // 进入内部寄存器
+  Write_Cmd(0xf6); //这是哪个寄存器? between CHP-ctrl6 and Inter_Reg_Dis 
   Write_Data_U16(0x01, 0x12);
 
-  Write_Cmd(0x11);
+  Write_Cmd(0x11); // power control2
   Write_Data_U16(0x10, 0x00); // 0d1f 1630  // vreg1b[13:8]_vreg1a_[5:0]     122B   3319  0D1F
 
-  Write_Cmd(0xEB);
+  Write_Cmd(0xEB);  // Vreg_Ctrl1
   Write_Data_U16(0x0d, 0x1f); // 160a  // vreg2b[13:8]_vreg2a_[5:0]     1606   2334  0528
 
-  Write_Cmd(0xEC);
+  Write_Cmd(0xEC); // Vreg_Ctrl2
   Write_Data_U16(0x05, 0x28);
 
-  Write_Cmd(0x50);
+  Write_Cmd(0x50); // Gamma Control1
   Write_Data_U16(0xf3, 0x80); // H:V0(7-4) V13(3-0)   L:V63(3-0)
-
+  // 这里就开始看不懂了，高八位全部拉高，参数和注释是对应的；但是低八位，注释的意思是0x0f，参数却是0x80
   Write_Cmd(0x51);
   Write_Data_U16(0x11, 0x0c); // H:V61(5-0)   L:V62(5-0)
-
+  // 这一组也是，高八位合理，低八位看不懂
   Write_Cmd(0x52);
   Write_Data_U16(0x09, 0x09); // H:V57(4-0)  L:V59(4-0)
-
+  // 同上
   Write_Cmd(0x53);
   Write_Data_U16(0x37, 0x06); // H:V43(6-0)  L:V50(3-0)
 
@@ -217,14 +225,14 @@ else if(USE_HORIZONTAL == 3)
   Write_Data_U16(0x12, 0x12); // H:V4(4-0)   L:V6(4-0)
 
   Write_Cmd(0x5D);
-  Write_Data_U16(0x37, 0x36); // H:V1(5-0)   L:V2(5-0)
+  Write_Data_U16(0x37, 0x36); // H:V1(5-0)   L:V2(5-0) //以上全是Gamma控制的内容。
 
-   Write_Cmd(0x07);
-  Write_Data_U16(0x10, 0x13);
+   Write_Cmd(0x07); // display control1 
+  Write_Data_U16(0x10, 0x13); // TEMON=1, TM=0, GON=1, CL=0,REV=0,D=11 
 
-  Write_Cmd(0xfe);
+  Write_Cmd(0xfe); // Inter_REG_DIS，未传递参数。
 }
-
+  /**********第二个方法函数：连续写入GRAM病限定窗口范围 函数*****************************************/
 void GC9203_Display::LCD_SetPos(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) { // Use uint16_t
 // 输入信号有两组坐标，这个函数的意义应该是设置LCD的起始和结束点。
   Write_Cmd(0x03); // R03h 还是entry mode寄存器。这一段和begin的内容有点重复，不知道原因。
@@ -247,7 +255,8 @@ void GC9203_Display::LCD_SetPos(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t 
     Write_Data(y1);
     Write_Cmd(0x38);      //Vertical End
     Write_Data(y2);
-    Write_Cmd(0x22);
+    // 36-39四个寄存器的命名是WIN_(VER/HOR)_(ST/ED)_ADDR我能理解中间两组命名，但是这里的WIN和ADDR是什么含义？
+    Write_Cmd(0x22); // write data to GRAM. 范围设定完毕开始对GRAM连续写入。
   } else {
     Write_Cmd(0x39);
     Write_Data(x1);
@@ -260,8 +269,8 @@ void GC9203_Display::LCD_SetPos(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t 
     Write_Cmd(0x22);
   }
 }
-
-// Helper function to reverse the bits in an 8-bit number
+  /**********插入一个功能函数：反转字节，返回反转后的数组*************************/
+// Helper function to reverse the bits in an 8-bit number，好像没看到有调用？
 uint8_t reverseBits(uint8_t n) {
     uint8_t result = 0;
     for (int i = 0; i < 8; ++i) {
@@ -271,40 +280,47 @@ uint8_t reverseBits(uint8_t n) {
     }
     return result;
 }
-
-void GC9203_Display::drawPixel(int16_t x, int16_t y, uint16_t color) {
+  /**********第三个方法函数：画像素函数*****************************************/
+void GC9203_Display::drawPixel(int16_t x, int16_t y, uint16_t color) { 
+  // 输入三个参量，包括一组坐标和一个色彩深度
     if ((x < 0) || (x >= width()) || (y < 0) || (y >= height())) return;
+  // 限定xy的范围，大于0且不小于最大值。但是不知道width 和 height 啥时候设置的。
 
-    LCD_SetPos(x, y, x, y);
+    LCD_SetPos(x, y, x, y); // 怎么输入一组坐标可以限定起始点？很奇怪啊
 
-    // Extract RGB components from 16-bit color (RGB565 format)
-    uint8_t r = (color >> 11) & 0x1F; // Extract the 5 bits for red
-    uint8_t g = (color >> 5) & 0x3F;  // Extract the 6 bits for green
-    uint8_t b = color & 0x1F;         // Extract the 5 bits for blue
+    // Extract RGB components from 16-bit color (RGB565 format) 提取色彩数据
+    uint8_t r = (color >> 11) & 0x1F; // Extract the 5 bits for red 0001 1111 （5位）
+    uint8_t g = (color >> 5) & 0x3F;  // Extract the 6 bits for green 0011 1111 （6位）
+    uint8_t b = color & 0x1F;         // Extract the 5 bits for blue 0001 1111 （5位）
+   // 做了个什么操作？举个例子，R的取值=color右移11位后，将高5位变成了低5位，然后与0001 1111取与。
+   // 结果：R的值= (000)+(color的高五位）
 
     // Convert to 6-bit values (scale from 5-bit to 6-bit for red and blue)
-    r = (r << 1) | (r >> 4);  // Scale red 5 bits to 6 bits
+    r = (r << 1) | (r >> 4);  // Scale red 5 bits to 6 bits r左移1位和r右移4位后的值进行按位‘或’运算。
+   // 注意，左移右移，都是在空缺位置补0，而不是环形数组移动。
     b = (b << 1) | (b >> 4);  // Scale blue 5 bits to 6 bits
 
     // Format the color data according to the GC9203's requirements
     uint8_t red_byte = (r << 2);   // 6 Red bits + 2 dummy bits
     uint8_t green_byte = (g << 2); // 6 Green bits + 2 dummy bits
     uint8_t blue_byte = (b << 2);  // 6 Blue bits + 2 dummy bits
-
-    // Reverse the bits in each color byte if needed
+   // 至此得到了高6位是有效数值的三组色彩数据，而且复用了R最高位和B最高位。
+    // Reverse the bits in each color byte if needed，这主要是看选了什么样的BGR顺序和屏幕显示顺序
     // red_byte = reverseBits(red_byte);
     // green_byte = reverseBits(green_byte);
     // blue_byte = reverseBits(blue_byte);
 
-    // Use the new function to write the three color bytes
+    // Use the new function to write the three color bytes，写入色彩数据。但是写给谁不知道？
     Write_Three_Bytes(red_byte, green_byte, blue_byte);
 }
 
-
-void GC9203_Display::fillScreen(uint16_t color) {
+  /**********第四个方法函数：铺满屏幕函数*****************************************/
+void GC9203_Display::fillScreen(uint16_t color) { // 什么鬼东西，你写一个函数里面嵌套一个函数，没有任何其他操作？
 clearScreen(color);
 }
-  void GC9203_Display::clearScreen(uint16_t color){
+  void GC9203_Display::clearScreen(uint16_t color){ // 清屏函数
+    /***第一步，配置色彩数据。这里很奇怪，让人无法理解上一个函数为什么要那样写。
+    甚至可以直接将以下三步定义为一个“配置色彩”的操作函数，再调用，不是更方便么？***/ 
     uint8_t r = (color >> 11) & 0x1F; // Extract the 5 bits for red
     uint8_t g = (color >> 5) & 0x3F;  // Extract the 6 bits for green
     uint8_t b = color & 0x1F;         // Extract the 5 bits for blue
@@ -317,10 +333,11 @@ clearScreen(color);
     uint8_t red_byte = (r << 2);   // 6 Red bits + 2 dummy bits
     uint8_t green_byte = (g << 2); // 6 Green bits + 2 dummy bits
     uint8_t blue_byte = (b << 2);  // 6 Blue bits + 2 dummy bits
-
-  uint8_t i, j;
-  if ((USE_HORIZONTAL == 0) || (USE_HORIZONTAL == 1))
-    LCD_SetPos(0, 0, 128, 220);
+    
+    /***第二步，写色彩数据，进入屏幕坐标。***/ 
+  uint8_t i, j;// 针对不同扫描顺序下的写入顺序。 (recall line.154, entry mode.)
+  if ((USE_HORIZONTAL == 0) || (USE_HORIZONTAL == 1))  // use_horizontal的值在哪里读？根本没输入。
+    LCD_SetPos(0, 0, 128, 220); // 看这里的意思是，前列后行。但是128我还是不理解怎么算出来的。唯一的可能是屏幕分辨率调低了。相较于176列，调低了1.375倍。色彩深度看似24位实则18位。
     for (i = 0; i < 128; i++) {
     for (j = 0; j < 220; j++)
       Write_Three_Bytes(red_byte, green_byte, blue_byte);
@@ -332,32 +349,34 @@ clearScreen(color);
       Write_Three_Bytes(red_byte, green_byte, blue_byte);
   }
 }
-
-void GC9203_Display::printNew(const long value, const int chCount)
-{ getNumberBounds(chCount);
-  print(value); 
-  setCursor(OriginalCursor_x, OriginalCursor_y);  
+  /**********第五个方法函数：打印*****************************************/
+void GC9203_Display::printNew(const long value, const int chCount) // const 常量声明。 chCount是字符数量。
+{ getNumberBounds(chCount); // 后面有定义这个函数，获取数字边界
+  print(value); // 打印value，定义为长整数
+  setCursor(OriginalCursor_x, OriginalCursor_y); // 恢复原始光标位置  
 }
 
 void GC9203_Display::printNew(const float value, const unsigned decimals, const int chCount)
 { getNumberBounds(chCount);
-  print(value, decimals); 
+  print(value, decimals); // 打印value，定义为浮点数，并指定小数位数
   setCursor(OriginalCursor_x, OriginalCursor_y);  
 }
 
-void GC9203_Display::getNumberBounds(const int chCount)
-{ OriginalCursor_x = cursor_x; 
+void GC9203_Display::getNumberBounds(const int chCount) 
+{ OriginalCursor_x = cursor_x;  //保存当前光标的位置
   OriginalCursor_y = cursor_y;
   getTextBounds("3",  OriginalCursor_x, OriginalCursor_y, &x, &y, &charWidth, &h); // THIS CODE IS UGLY 
-  getTextBounds("33", OriginalCursor_x, OriginalCursor_y, &x, &y, &char2Width, &h); // font of 3 is wider than 0
-  int space = char2Width-2*charWidth;
-  w = chCount*charWidth + (chCount-1)*space;
+  getTextBounds("33", OriginalCursor_x, OriginalCursor_y, &x, &y, &char2Width, &h); // font of 3 is wider than 0 
+ // 获取了3 和 33的数字显示范围。
+ // getTextBounds是Adafruit的内置函数，这个函数表示了打印内容在整个画面的占比和范围。
+  int space = char2Width - 2 * charWidth; // 计算字符之间的间距
+  w = chCount * charWidth + (chCount - 1) * space; // 计算总宽度
   // Serial << x, y, w, h; // 0: 22 64 22 34 // 00: 22 64 48 34
   // textbgcolor = ILI9341_GREEN; // testing with green background
-  fillRect(x, y, w, h, textbgcolor); // textbgcolor is protected in Adafruit_GFX.h 
+  fillRect(x, y, w, h, textbgcolor); // textbgcolor is protected in Adafruit_GFX.h 用背景色填充该区域
 }
 
-void GC9203_Display::printNew(const String &newString, const String &oldString) // overloading needs const here
+void GC9203_Display::printNew(const String &newString, const String &oldString) // overloading needs const here 替换旧字符为新字符，在打印前清除旧字符的显示范围。
 { OriginalCursor_x = cursor_x;
   OriginalCursor_y = cursor_y;
   getTextBounds(oldString.c_str(), OriginalCursor_x, OriginalCursor_y, &x, &y, &w, &h);
