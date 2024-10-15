@@ -130,13 +130,13 @@ void GC9203_Display::begin() {// “开始”函数
   digitalWrite(_rst, HIGH); // 结束复位
   delay(120);
 
-  // 接下来是命令和数据传输给显示屏，但是不知道含义？因为他的高8位也一直在变，没搞懂是地址还是什么意思。
+  // 接下来是命令和数据传输给显示屏，但是不知道含义？
   // 猜测是地址吧
-  Write_Cmd(0xff); // 发送命令，全部拉高
-  Write_Data_U16(0x5a, 0xa5); // 发送数据，不知道这个数据是发给谁的，前面是高八位，后面是第八位
+  Write_Cmd(0xff); // Inter_REG_EN的地址
+  Write_Data_U16(0x5a, 0xa5); // 发送0x5aa5，允许访问内部寄存器。
 
-  Write_Cmd(0xf6); 
-  Write_Data_U16(0x01, 0x12);
+  Write_Cmd(0xf6); //这是哪个寄存器? between CHP-ctrl6 and Inter_Reg_Dis . 后面进入内部寄存器的时候，也第一访问了这个寄存器。
+  Write_Data_U16(0x01, 0x12); // 配置也是一样的
 
   Write_Cmd(0xef); // 内部寄存器CHP Control6, 
   Write_Data_U16(0x10, 0x52); // 1052, 0001 0000 0101 0010, 把VGL_AD1拉高，其他为0，后八位是默认值。
@@ -174,7 +174,7 @@ else if(USE_HORIZONTAL == 3)
 
   // 进入内部寄存器
   Write_Cmd(0xf6); //这是哪个寄存器? between CHP-ctrl6 and Inter_Reg_Dis 
-  Write_Data_U16(0x01, 0x12);
+  Write_Data_U16(0x01, 0x12); // 配置也和上面一样
 
   Write_Cmd(0x11); // power control2
   Write_Data_U16(0x10, 0x00); // 0d1f 1630  // vreg1b[13:8]_vreg1a_[5:0]     122B   3319  0D1F
@@ -230,7 +230,7 @@ else if(USE_HORIZONTAL == 3)
    Write_Cmd(0x07); // display control1 
   Write_Data_U16(0x10, 0x13); // TEMON=1, TM=0, GON=1, CL=0,REV=0,D=11 
 
-  Write_Cmd(0xfe); // Inter_REG_DIS，未传递参数。
+  Write_Cmd(0xfe); // Inter_REG_DIS，未传递参数,就是传递默认值，至此禁止访问internal register。
 }
   /**********第二个方法函数：连续写入GRAM病限定窗口范围 函数*****************************************/
 void GC9203_Display::LCD_SetPos(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) { // Use uint16_t
