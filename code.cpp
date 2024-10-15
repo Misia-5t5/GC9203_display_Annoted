@@ -281,14 +281,16 @@ uint8_t reverseBits(uint8_t n) {
     return result;
 }
   /**********第三个方法函数：画像素函数*****************************************/
+  /最基本的像素推送器。你可以调用它，并指定参数：X Y坐标和一种颜色，它会在屏幕上生成一个点/
 void GC9203_Display::drawPixel(int16_t x, int16_t y, uint16_t color) { 
-  // 输入三个参量，包括一组坐标和一个色彩深度
+  // 输入三个参量，包括一组坐标和一个色彩
     if ((x < 0) || (x >= width()) || (y < 0) || (y >= height())) return;
   // 限定xy的范围，大于0且不小于最大值。但是不知道width 和 height 啥时候设置的。
 
     LCD_SetPos(x, y, x, y); // 怎么输入一组坐标可以限定起始点？很奇怪啊
 
     // Extract RGB components from 16-bit color (RGB565 format) 提取色彩数据
+    // 为什么是RGB565，可能有很多原因。但其中一个印证，就是Adafruit这个库，色彩深度就是565的配置。
     uint8_t r = (color >> 11) & 0x1F; // Extract the 5 bits for red 0001 1111 （5位）
     uint8_t g = (color >> 5) & 0x3F;  // Extract the 6 bits for green 0011 1111 （6位）
     uint8_t b = color & 0x1F;         // Extract the 5 bits for blue 0001 1111 （5位）
@@ -316,6 +318,7 @@ void GC9203_Display::drawPixel(int16_t x, int16_t y, uint16_t color) {
 
   /**********第四个方法函数：铺满屏幕函数*****************************************/
 void GC9203_Display::fillScreen(uint16_t color) { // 什么鬼东西，你写一个函数里面嵌套一个函数，没有任何其他操作？
+  // fillscreen本质上就是清理屏幕，他是用一个颜色将整个屏幕覆盖，那效果就是清理。
 clearScreen(color);
 }
   void GC9203_Display::clearScreen(uint16_t color){ // 清屏函数
