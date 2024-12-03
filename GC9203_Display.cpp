@@ -22,7 +22,7 @@ void GC9203_Display::Write_Cmd(uint8_t cmd) {
   uint8_t cmd：这是函数的参数列表。uint8_t 是一个无符号8位整数类型，表示这个函数接受一个8位的信号作为输入参数。cmd 是这个参数的名字。***/
   digitalWrite(_ss, LOW);  // 拉低片选信号，选择当前设备
   digitalWrite(_dc, LOW);  // 拉低数据/命令选择引脚，表示接下来发送的是命令
-  ## digitalWrite 是 Arduino 平台中的一个内置函数，用于设置数字引脚的值为高电平（HIGH）或低电平（LOW）。
+  // digitalWrite 是 Arduino 平台中的一个内置函数，用于设置数字引脚的值为高电平（HIGH）或低电平（LOW）。
   for (i = 0; i < 8; i++) {  // 循环8次，每次处理一个比特
     digitalWrite(_scl, LOW);  // 拉低时钟信号
     if (cmd & 0x80) digitalWrite(_sdi, HIGH);  // 如果最高位是1，则拉高数据线
@@ -232,7 +232,7 @@ else if(USE_HORIZONTAL == 3)
 
   Write_Cmd(0xfe); // Inter_REG_DIS，未传递参数,就是传递默认值，至此禁止访问internal register。
 }
-  /**********第二个方法函数：连续写入GRAM病限定窗口范围 函数*****************************************/
+  /**********第二个方法函数：连续写入GRAM并限定窗口范围 函数*****************************************/
 void GC9203_Display::LCD_SetPos(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) { // Use uint16_t
 // 输入信号有两组坐标，这个函数的意义应该是设置LCD的起始和结束点。
   Write_Cmd(0x03); // R03h 还是entry mode寄存器。这一段和begin的内容有点重复，不知道原因。
@@ -312,7 +312,7 @@ void GC9203_Display::drawPixel(int16_t x, int16_t y, uint16_t color) {
     // green_byte = reverseBits(green_byte);
     // blue_byte = reverseBits(blue_byte);
 
-    // Use the new function to write the three color bytes，写入色彩数据。但是写给谁不知道？
+    // Use the new function to write the three color bytes，写入色彩数据。写给了0x22寄存器，在setpos最后有发命令。
     Write_Three_Bytes(red_byte, green_byte, blue_byte);
 }
 
@@ -349,7 +349,7 @@ clearScreen(color);
     LCD_SetPos(0, 0, 220, 128);
   for (i = 0; i < 220; i++) {
     for (j = 0; j < 128; j++)
-      Write_Three_Bytes(red_byte, green_byte, blue_byte);
+      Write_Three_Bytes(red_byte, green_byte, blue_byte); 
   }
 }
   /**********第五个方法函数：打印*****************************************/
